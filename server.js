@@ -49,19 +49,46 @@ const upload = multer({
 });
 
 // ─── CORS — sirf apna domain allow karo ─────────────────────
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://aiforgen.netlify.app').split(',').map(o => o.trim());
+const ALLOWED_ORIGINS = [
+    'https://aiforgen.netlify.app',     // ✅ Netlify frontend
+    'http://localhost:3000',            // ✅ Local React
+    'http://localhost:5500',            // ✅ Live Server (VS Code)
+    'http://127.0.0.1:5500',           // ✅ Live Server alternate
+    'http://localhost:8080',            // ✅ Local testing
+    'https://aiforgen.com',             // ✅ Custom domain (agar hai)
+];
+
+// Agar Railway me ALLOWED_ORIGINS env set hai to use bhi add karo
+if (process.env.ALLOWED_ORIGINS) {
+    const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+    ALLOWED_ORIGINS.push(...envOrigins);
+}
+
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (curl, Postman, server-to-server)
-    if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin) || process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-    callback(new Error('CORS blocked: ' + origin));
-  },
-  methods: ['GET','POST','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization']
+    origin: function (origin, callback) {
+        // Allow requests with no origin (curl, Postman, server-to-server)
+        if (!origin) return callback(null, true);
+        
+        // Check if origin is in allowed list
+        if (ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // Development mode — allow all
+        if (process.env.NODE_ENV !== 'production') {
+            return callback(null, true);
+        }
+        
+        // Blocked
+        console.warn('CORS blocked:', origin);
+        callback(new Error('CORS blocked: ' + origin));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
+
+console.log('✅ CORS allowed origins:', ALLOWED_ORIGINS);
 
 // ─── RATE LIMITERS ────────────────────────────────────────────
 // 1. General API — 100 requests per 15 min per IP (sabhi routes ke liye)
